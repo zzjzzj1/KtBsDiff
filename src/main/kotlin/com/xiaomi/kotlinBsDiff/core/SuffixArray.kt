@@ -7,7 +7,7 @@ import java.util.*
     todo 后续可以继续优化为时间on，空间o1的算法
  */
 class SuffixArray(private val data: ByteArray) {
-    // todo 使用一个长度为256的数组代替treemap
+    // todo 桶排序的时候可以使用一个长度为256的数组代替treemap
 
 
     private var suffixArray: IntArray? = null

@@ -3,7 +3,8 @@ package com.xiaomi.com.xiaomi.kotlinBsDiff.core
 import java.util.*
 
 /*
-    诱导排序获取后缀数组时间复杂度为On,空间复杂度为O1
+    诱导排序获取后缀数组时间复杂度为On,空间复杂度为On
+    todo 后续可以继续优化为时间on，空间o1的算法
  */
 class SuffixArray(private val data: ByteArray) {
     // todo 使用一个长度为256的数组代替treemap

@@ -4,17 +4,14 @@ import com.xiaomi.com.xiaomi.kotlinBsDiff.exception.FileNotFoundException
 import com.xiaomi.com.xiaomi.kotlinBsDiff.utils.FileUtils
 import java.io.File
 import java.io.FileOutputStream
-import java.io.OutputStream
+import kotlin.collections.ArrayList
 
 class BsDiff(oldFileName: String, newFileName: String) {
     private var oldFile: File = File(oldFileName)
     private var newFile: File = File(newFileName)
     private val newData = FileUtils.readDataFromFile(newFile)
     private val oldData = FileUtils.readDataFromFile(oldFile)
-    private var diffData = IntArray(newData.size)
-    private val extraData = ByteArray(newData.size)
-    private var diffLen = 0
-    private var extraLen = 0
+    private var diffRecord = ArrayList<Byte>()
 
     // newData right
     private var scan = 0
@@ -45,51 +42,72 @@ class BsDiff(oldFileName: String, newFileName: String) {
     }
 
 
-    fun bsDiff(patchFileName: String) {
-//        val patchFile = FileUtils.createFile(patchFileName)
+    fun diff(patchFileName: String) {
+        val patchFile = FileUtils.createFile(patchFileName)
+        diffRecord = ArrayList()
+        writeData(newData.size)
         // 根据旧文件创建后缀数组
         val suffixArray = SuffixArray(oldData)
-//        val outputStream = FileOutputStream(patchFile)
-        bsDiffInner(null, suffixArray)
+        val outputStream = FileOutputStream(patchFile)
+        bsDiffInner(suffixArray)
+        val res = ByteArray(diffRecord.size)
+        for (i in res.indices) {
+            res[i] = diffRecord[i]
+        }
+        outputStream.write(res)
+        outputStream.close()
     }
 
+    private fun judgeHaveMatchExtension(oldScore: Int, len: Int): Boolean {
+        // 神秘启发式条件!!!!
+        if (len == oldScore && len != 0) {
+            return true
+        }
+        // 超参数,这个会影响算法的匹配
+        return len > oldScore + 8
+    }
+
+    private fun compareDataByOffset(cur: Int): Boolean {
+        return cur + lastOffset < oldData.size && oldData[cur + lastOffset] == newData[cur]
+    }
+
+
     private fun bsDiffInner(
-        outputStream: OutputStream?,
         suffixArray: SuffixArray
     ) {
+        // 核心原理就是使用启发式的搜索算法不断寻找大概率重合的字段
+        // HDiff算法对于此处进行了优化，使得包体减小百分之10
+        // todo 查看HDiff算法此处搜索逻辑
         while (scan < newData.size) {
             var oldScore = 0
             scan += len
-            val recordScan = scan
+            var cur = scan
             while (scan < newData.size) {
                 // 从当前获取最大匹配项
                 val search = suffixArray.search(scan, oldData, newData)
                 len = search.len
                 pos = search.pos
-                for (cur in recordScan..<scan + len) {
-                    if (cur + lastOffset < oldData.size && oldData[cur + lastOffset] == newData[cur]) {
+                while (cur < scan + len) {
+                    if (compareDataByOffset(cur)) {
                         oldScore++
                     }
+                    cur++
                 }
-                if (len == oldScore && len != 0) {
+                if (judgeHaveMatchExtension(oldScore, len)) {
                     break
                 }
-                if (len > oldScore + 8) {
-                    break
-                }
-                if (scan + lastOffset < oldData.size && oldData[scan + lastOffset] == newData[scan]) {
+                if (compareDataByOffset(scan)) {
                     oldScore--
                 }
                 scan++
             }
             if (len != oldScore || scan == newData.size) {
-                println("$lastPos $pos $lastScan $scan")
                 solveMatchExtension()
             }
-            scan++
         }
     }
 
+    // 向前搜索匹配项，它这里有一个启发式的判断条件
     private fun getForwardExtensionLen(): Int {
         var currentNumber = 0
         var lastNumber = 0
@@ -100,6 +118,7 @@ class BsDiff(oldFileName: String, newFileName: String) {
                 currentNumber++
             }
             i++
+            // 启发式判断
             if (currentNumber * 2 - i > lastNumber * 2 - forwardExtensionLen) {
                 lastNumber = currentNumber
                 forwardExtensionLen = i
@@ -108,6 +127,7 @@ class BsDiff(oldFileName: String, newFileName: String) {
         return forwardExtensionLen
     }
 
+    // 向后搜索匹配项，基本原理通上
     private fun getBackwardExtensionLen(): Int {
         if (scan >= newData.size) {
             return 0
@@ -127,6 +147,7 @@ class BsDiff(oldFileName: String, newFileName: String) {
         return backwardExtensionLength
     }
 
+    // 可能会有交叉部分
     private fun solveBackwardAndForwardOverlap(
         forwardExtensionLength: Int,
         backwardExtensionLength: Int
@@ -149,6 +170,7 @@ class BsDiff(oldFileName: String, newFileName: String) {
             if (newData[scan - backwardExtensionLength + i] == oldData[pos - backwardExtensionLength + i]) {
                 currentNumber--
             }
+            // 判断属于前半段还是后半段
             if (currentNumber > lastNumber) {
                 lastNumber = currentNumber
                 len = i + 1
@@ -159,15 +181,47 @@ class BsDiff(oldFileName: String, newFileName: String) {
         return res
     }
 
-    private fun recordResult(forwardExtensionLength: Int, backwardExtensionLength: Int) {
+    private fun recordResult(
+        forwardExtensionLength: Int,
+        backwardExtensionLength: Int,
+    ) {
+        // 记录diff文件
+        // todo 保存diff文件，这个地方压缩算法可以优化，从而降低包体大小
+        writeData(forwardExtensionLength)
+        writeData(lastPos)
+        val tempArray = ByteArray(forwardExtensionLength)
+        val posRecord = ArrayList<Int>()
         for (i in 0..<forwardExtensionLength) {
-            diffData[diffLen + i] = newData[lastScan + i] - oldData[lastPos + i]
+            tempArray[i] = (newData[lastScan + i] - oldData[lastPos + i]).toByte()
         }
-        diffLen += forwardExtensionLength
-        for (i in 0..<(scan - backwardExtensionLength) - (lastScan + forwardExtensionLength)) {
-            extraData[extraLen + i] = newData[lastScan + forwardExtensionLength + i]
+        for (i in 0..<forwardExtensionLength) {
+            if (tempArray[i].toInt() == 0) {
+                continue
+            }
+            if (i == 0 || tempArray[i - 1].toInt() == 0) {
+                posRecord.add(i)
+            }
+            if (i + 1 == forwardExtensionLength || tempArray[i + 1].toInt() == 0) {
+                posRecord.add(i + 1)
+            }
         }
-        extraLen += (scan - backwardExtensionLength) - (lastScan + forwardExtensionLength)
+        writeData(posRecord.size / 2)
+        var cur = 0
+        while (cur < posRecord.size) {
+            val startPos = posRecord[cur++]
+            val endPos = posRecord[cur++]
+            writeData(startPos)
+            writeData(endPos - startPos)
+            for (i in startPos..<endPos) {
+                diffRecord.add(tempArray[i])
+            }
+        }
+        // 记录extra区段
+        val extraLen = (scan - backwardExtensionLength) - (lastScan + forwardExtensionLength)
+        writeData(extraLen)
+        for (i in 0..<extraLen) {
+            diffRecord.add(newData[lastScan + forwardExtensionLength + i])
+        }
     }
 
 
@@ -175,14 +229,26 @@ class BsDiff(oldFileName: String, newFileName: String) {
         val matchLengthArray = solveBackwardAndForwardOverlap(getForwardExtensionLen(), getBackwardExtensionLen())
         val forwardMatchLen = matchLengthArray[0]
         val backwardMatchLen = matchLengthArray[1]
+        // 记录变更
         recordResult(forwardMatchLen, backwardMatchLen)
+        // 修改位置
         lastScan = scan - backwardMatchLen
         lastPos = pos - backwardMatchLen
+        // 上面那个地方加上这个其实就相当于后缀匹配段后一个字符
         lastOffset = pos - scan
     }
 
-    private fun toPositive(byte: Byte): Int {
-        return byte + 128
+    private fun writeData(a: Int) {
+        diffRecord.addAll(intToByte(a))
+    }
+
+    private fun intToByte(a: Int): List<Byte> {
+        return listOf(
+            ((a shr 24) and 0xFF).toByte(),
+            ((a shr 16) and 0xFF).toByte(),
+            ((a shr 8) and 0xFF).toByte(),
+            (a and 0xFF).toByte()
+        )
     }
 
 }

@@ -2,7 +2,11 @@ package com.xiaomi.com.xiaomi.kotlinBsDiff.core
 
 import java.util.*
 
+/*
+    诱导排序获取后缀数组时间复杂度为On,空间复杂度为O1
+ */
 class SuffixArray(private val data: ByteArray) {
+    // todo 使用一个长度为256的数组代替treemap
 
 
     private var suffixArray: IntArray? = null

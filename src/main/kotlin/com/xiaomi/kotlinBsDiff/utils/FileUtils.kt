@@ -16,7 +16,7 @@ object FileUtils {
 
     fun createFile(patchFileName: String): File {
         var i = 0
-        var file: File = File(patchFileName)
+        var file = File(patchFileName)
         while (file.exists()) {
             file = File("${patchFileName}_${i++}")
         }

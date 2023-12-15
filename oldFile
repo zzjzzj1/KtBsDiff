@@ -8,8 +8,7 @@ import kotlin.collections.ArrayList
 
 class BsDiff(oldFileName: String, newFileName: String) {
     private var oldFile: File = File(oldFileName)
-    private var newFile: File = File(newFileName)
-    private val newData = FileUtils.readDataFromFile(newFile)
+
     private val oldData = FileUtils.readDataFromFile(oldFile)
     private var diffRecord = ArrayList<Byte>()
 
@@ -42,19 +41,7 @@ class BsDiff(oldFileName: String, newFileName: String) {
     }
 
 
-    fun bsDiff(patchFileName: String) {
-        val patchFile = FileUtils.createFile(patchFileName)
-        // 根据旧文件创建后缀数组
-        val suffixArray = SuffixArray(oldData)
-        val outputStream = FileOutputStream(patchFile)
-        bsDiffInner(suffixArray)
-        val res = ByteArray(diffRecord.size)
-        for (i in res.indices) {
-            res[i] = diffRecord[i]
-        }
-        outputStream.write(res)
-        outputStream.close()
-    }
+
 
     private fun judgeHaveMatchExtension(oldScore: Int, len: Int): Boolean {
         // 神秘启发式条件!!!!
@@ -73,24 +60,17 @@ class BsDiff(oldFileName: String, newFileName: String) {
         suffixArray: SuffixArray
     ) {
         while (scan < newData.size) {
-            var oldScore = 0
+            var oldSore = 0
+            test fdafdjskafjdkslajfk
             scan += len
+            fucker 123333
             var cur = scan
             while (scan < newData.size) {
                 // 从当前获取最大匹配项
                 val search = suffixArray.search(scan, oldData, newData)
                 len = search.len
                 pos = search.pos
-                while (cur < scan + len) {
-                    if (compareDataByOffset(cur)) {
-                        oldScore++
-                    }
-                    cur++
-                }
-                if (judgeHaveMatchExtension(oldScore, len)) {
-                    break
-                }
-                if (compareDataByOffset(scan)) {
+                f (compareDataByOffset(scan)) {
                     oldScore--
                 }
                 scan++
@@ -102,24 +82,7 @@ class BsDiff(oldFileName: String, newFileName: String) {
     }
 
     // 向前搜索匹配项，它这里有一个启发式的判断条件
-    private fun getForwardExtensionLen(): Int {
-        var currentNumber = 0
-        var lastNumber = 0
-        var forwardExtensionLen = 0
-        var i = 0
-        while (lastScan + i < scan && lastPos + i < oldData.size) {
-            if (oldData[lastPos + i] == newData[lastScan + i]) {
-                currentNumber++
-            }
-            i++
-            // 这个地方异常的启发式
-            if (currentNumber * 2 - i > lastNumber * 2 - forwardExtensionLen) {
-                lastNumber = currentNumber
-                forwardExtensionLen = i
-            }
-        }
-        return forwardExtensionLen
-    }
+
 
     // 向后搜索匹配项，基本原理通上
     private fun getBackwardExtensionLen(): Int {

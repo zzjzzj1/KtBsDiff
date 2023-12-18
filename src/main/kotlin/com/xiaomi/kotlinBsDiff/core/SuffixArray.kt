@@ -19,7 +19,7 @@ class SuffixArray(private val data: ByteArray) {
         return suffixArray!!
     }
 
-    fun getSuffixArrayByFile(): IntArray {
+    private fun getSuffixArrayByFile(): IntArray {
         val startTime = System.currentTimeMillis()
         val temp = getSuffixArray(data)
         println("后缀数组耗时${System.currentTimeMillis() - startTime}")

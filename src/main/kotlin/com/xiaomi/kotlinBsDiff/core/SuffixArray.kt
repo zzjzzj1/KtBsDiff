@@ -19,9 +19,11 @@ class SuffixArray(private val data: ByteArray) {
         return suffixArray!!
     }
 
-    private fun getSuffixArrayByFile(): IntArray {
-        return getSuffixArray(data)
-
+    fun getSuffixArrayByFile(): IntArray {
+        val startTime = System.currentTimeMillis()
+        val temp = getSuffixArray(data)
+        println("后缀数组耗时${System.currentTimeMillis() - startTime}")
+        return temp
     }
 
     private enum class SuffixType {
@@ -49,10 +51,10 @@ class SuffixArray(private val data: ByteArray) {
         }
     }
 
-    private fun getSuffixArray(line: Array<Int?>): IntArray {
+    private fun getSuffixArray(line: Array<Int?>, buketSize: Int = 256): IntArray {
         val sa = IntArray(line.size + 1)
         sa[0] = line.size
-        val bucket = getBucket(line)
+        val bucket = getBucket(line, bucketSize = buketSize)
         // 判断是否可以根据首自己排序
         if (judgeCanSortByBucket(bucket, line, sa)) {
             return sa
@@ -60,12 +62,12 @@ class SuffixArray(private val data: ByteArray) {
         // 获取后缀类型
         val suffixType = getSuffixType(line)
         val lmsList = getLMSList(suffixType)
-        sortLMS(lmsList, sa, bucket, line, suffixType)
+        val bucketSize = sortLMS(lmsList, sa, bucket, line, suffixType)
         val temp = arrayOfNulls<Int>(lmsList.size)
         for (i in lmsList.indices) {
             temp[i] = lmsList[i].number
         }
-        val sa1 = getSuffixArray(temp)
+        val sa1 = getSuffixArray(temp, bucketSize)
         inducedSort(suffixType, lmsList, sa, sa1, bucket, line)
         return sa
     }
@@ -75,19 +77,19 @@ class SuffixArray(private val data: ByteArray) {
         lmsList: List<LMS>,
         sa: IntArray,
         sa1: IntArray,
-        bucket: TreeMap<Int?, Bucket>,
+        bucket: Array<Bucket>,
         line: Array<Int?>
     ) {
         for (i in 1 until sa.size) {
             sa[i] = -1
         }
-        for (value in bucket.values) {
+        for (value in bucket) {
             value.currentRight = value.startIndex + value.number - 1
         }
         for (i in sa1.size - 1 downTo 1) {
             val lms = lmsList[sa1[i]]
             if (lms.left < line.size) {
-                sa[bucket[line[lms.left]]!!.currentRight--] = lms.left
+                sa[bucket[line[lms.left]!!].currentRight--] = lms.left
             }
         }
         inducedSortTemp(suffixType, sa, bucket, line)
@@ -96,10 +98,10 @@ class SuffixArray(private val data: ByteArray) {
     private fun inducedSortTemp(
         suffixType: Array<SuffixType?>,
         sa: IntArray,
-        bucket: TreeMap<Int?, Bucket>,
+        bucket: Array<Bucket>,
         line: Array<Int?>
     ) {
-        for (value in bucket.values) {
+        for (value in bucket) {
             value.currentLeft = value.startIndex
             value.currentRight = value.startIndex + value.number - 1
         }
@@ -107,14 +109,14 @@ class SuffixArray(private val data: ByteArray) {
         for (i in sa.indices) {
             val suffix = sa[i] - 1
             if (sa[i] > 0 && suffixType[suffix] == SuffixType.L) {
-                sa[bucket[line[suffix]]!!.currentLeft++] = suffix
+                sa[bucket[line[suffix]!!].currentLeft++] = suffix
             }
         }
         // 诱导生成S
         for (i in sa.indices.reversed()) {
             val suffix = sa[i] - 1
             if (sa[i] > 0 && suffixType[suffix] == SuffixType.S) {
-                sa[bucket[line[suffix]]!!.currentRight--] = suffix
+                sa[bucket[line[suffix]!!].currentRight--] = suffix
             }
         }
     }
@@ -131,10 +133,10 @@ class SuffixArray(private val data: ByteArray) {
     private fun sortLMS(
         lmsList: List<LMS>,
         sa: IntArray,
-        bucket: TreeMap<Int?, Bucket>,
+        bucket: Array<Bucket>,
         line: Array<Int?>,
         suffixType: Array<SuffixType?>
-    ) {
+    ): Int {
         val tempSa1 = IntArray(lmsList.size + 1)
         for (i in 1 until lmsList.size + 1) {
             tempSa1[i] = i - 1
@@ -155,6 +157,7 @@ class SuffixArray(private val data: ByteArray) {
                 last = lms
             }
         }
+        return number
     }
 
     private fun judgeSame(a: LMS?, b: LMS?, line: Array<Int?>): Boolean {
@@ -197,28 +200,27 @@ class SuffixArray(private val data: ByteArray) {
         return i != 0 && suffixType[i] == SuffixType.S && suffixType[i - 1] == SuffixType.L
     }
 
-    private fun judgeCanSortByBucket(bucket: TreeMap<Int?, Bucket>, line: Array<Int?>, ans: IntArray): Boolean {
+    private fun judgeCanSortByBucket(bucket: Array<Bucket>, line: Array<Int?>, ans: IntArray): Boolean {
         if (bucket.size == line.size) {
             for (i in line.indices) {
-                ans[bucket[line[i]]!!.startIndex] = i
+                ans[bucket[line[i]!!].startIndex] = i
             }
             return true
         }
         return false
     }
 
-    private fun getBucket(line: Array<Int?>): TreeMap<Int?, Bucket> {
-        val bucket = TreeMap<Int?, Bucket>()
+    private fun getBucket(line: Array<Int?>, bucketSize: Int): Array<Bucket> {
+        val bucket = Array(bucketSize) { Bucket() }
         for (item in line) {
-            if (!bucket.containsKey(item)) {
-                bucket[item] = Bucket()
+            if (item != null) {
+                bucket[item].number++
             }
-            bucket[item]!!.number++
         }
         var index = 1
-        for ((_, value) in bucket) {
-            value.startIndex = index
-            index += value.number
+        for (item in bucket) {
+            item.startIndex = index
+            index += item.number
         }
         return bucket
     }

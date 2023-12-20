@@ -121,8 +121,8 @@ class SuffixArray(private val data: ByteArray) {
         }
     }
 
-    private fun getLmsMap(lmsList: List<LMS>): Map<Int, LMS> {
-        val record: MutableMap<Int, LMS> = HashMap()
+    private fun getLmsMap(lmsList: List<LMS>, size: Int): Array<LMS?> {
+        val record = Array<LMS?>(size) { null }
         for (lms in lmsList) {
             record[lms.left] = lms
         }
@@ -141,20 +141,19 @@ class SuffixArray(private val data: ByteArray) {
         for (i in 1 until lmsList.size + 1) {
             tempSa1[i] = i - 1
         }
-        val lmsMap = getLmsMap(lmsList)
+        val lmsMap = getLmsMap(lmsList, suffixType.size)
         inducedSort(suffixType, lmsList, sa, tempSa1, bucket, line)
         var number = 0
         var last: LMS? = null
         for (index in sa) {
-            if (lmsMap.containsKey(index)) {
-                val lms = lmsMap[index]
-                lms!!.number = number++
+            lmsMap[index]?.let {
+                it.number = number++
                 // 相同名称lms修正
-                if (judgeSame(last, lms, line)) {
-                    lms.number--
+                if (judgeSame(last, it, line)) {
+                    it.number--
                     number--
                 }
-                last = lms
+                last = it
             }
         }
         return number

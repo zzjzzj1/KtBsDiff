@@ -15,10 +15,10 @@ object FileUtils {
     }
 
     fun createFile(patchFileName: String): File {
-        var i = 0
-        var file = File(patchFileName)
-        while (file.exists()) {
-            file = File("${patchFileName}_${i++}")
+        val file = File(patchFileName)
+        if (file.exists()) {
+            file.delete()
+            return File(patchFileName)
         }
         return file
     }

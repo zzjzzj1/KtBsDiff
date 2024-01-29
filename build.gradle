@@ -11,6 +11,7 @@ repositories {
 
 dependencies {
     testImplementation 'org.jetbrains.kotlin:kotlin-test'
+    implementation group: 'com.github.luben', name: 'zstd-jni', version: '1.+';
 }
 
 test {

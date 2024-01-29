@@ -4,14 +4,13 @@ import com.xiaomi.com.xiaomi.kotlinBsDiff.exception.FileNotFoundException
 import com.xiaomi.com.xiaomi.kotlinBsDiff.utils.FileUtils
 import java.io.File
 import java.io.FileOutputStream
+import java.io.OutputStream
 import kotlin.collections.ArrayList
 
-class BsDiff(oldFileName: String, newFileName: String) {
-    private var oldFile: File = File(oldFileName)
-    private var newFile: File = File(newFileName)
-    private val newData = FileUtils.readDataFromFile(newFile)
-    private val oldData = FileUtils.readDataFromFile(oldFile)
-    private var diffRecord = ArrayList<Byte>()
+class BsDiff(val oldData: ByteArray, val newData: ByteArray) {
+//    private var diffRecord = ArrayList<Byte>()
+
+    private var outputStream: OutputStream? = null
 
     // newData right
     private var scan = 0
@@ -31,31 +30,12 @@ class BsDiff(oldFileName: String, newFileName: String) {
     //
     private var lastOffset = 0
 
-    init {
-        if (!oldFile.exists()) {
-            throw FileNotFoundException("can not find old file")
-        }
-        if (!newFile.exists()) {
-            throw FileNotFoundException("can not find new file")
-        }
-
-    }
-
-
-    fun diff(patchFileName: String) {
-        val patchFile = FileUtils.createFile(patchFileName)
-        diffRecord = ArrayList()
+    fun diff(outputStream: OutputStream) {
+        this.outputStream = outputStream
         writeData(newData.size)
         // 根据旧文件创建后缀数组
         val suffixArray = SuffixArray(oldData)
-        val outputStream = FileOutputStream(patchFile)
         bsDiffInner(suffixArray)
-        val res = ByteArray(diffRecord.size)
-        for (i in res.indices) {
-            res[i] = diffRecord[i]
-        }
-        outputStream.write(res)
-        outputStream.close()
     }
 
     private fun judgeHaveMatchExtension(oldScore: Int, len: Int): Boolean {
@@ -205,23 +185,45 @@ class BsDiff(oldFileName: String, newFileName: String) {
                 posRecord.add(i + 1)
             }
         }
-        writeData(posRecord.size / 2)
+        val temp = ArrayList<Int>()
+        var lastStartPos: Int = -1
+        var lastEndPos: Int = -1
         var cur = 0
+        while (cur < posRecord.size) {
+            val startPos = posRecord[cur++]
+            val endPos = posRecord[cur++]
+            if (lastStartPos == -1 || lastEndPos == -1) {
+                lastStartPos = startPos
+                lastEndPos = endPos
+                continue
+            }
+            val zeroNumber = startPos - lastEndPos
+            if (zeroNumber > 8) {
+                temp.add(lastStartPos)
+                temp.add(lastEndPos)
+                lastStartPos = startPos
+            }
+            lastEndPos = endPos
+        }
+        if (lastStartPos != -1 && lastEndPos != -1) {
+            temp.add(lastStartPos)
+            temp.add(lastEndPos)
+        }
+        posRecord.clear()
+        posRecord.addAll(temp)
+        writeData(posRecord.size / 2)
+        cur = 0
         while (cur < posRecord.size) {
             val startPos = posRecord[cur++]
             val endPos = posRecord[cur++]
             writeData(startPos)
             writeData(endPos - startPos)
-            for (i in startPos..<endPos) {
-                diffRecord.add(tempArray[i])
-            }
+            outputStream?.write(tempArray, startPos, endPos - startPos)
         }
         // 记录extra区段
         val extraLen = (scan - backwardExtensionLength) - (lastScan + forwardExtensionLength)
         writeData(extraLen)
-        for (i in 0..<extraLen) {
-            diffRecord.add(newData[lastScan + forwardExtensionLength + i])
-        }
+        outputStream?.write(newData, lastScan + forwardExtensionLength, extraLen)
     }
 
 
@@ -239,11 +241,11 @@ class BsDiff(oldFileName: String, newFileName: String) {
     }
 
     private fun writeData(a: Int) {
-        diffRecord.addAll(intToByte(a))
+        this.outputStream?.write(intToByte(a))
     }
 
-    private fun intToByte(a: Int): List<Byte> {
-        return listOf(
+    private fun intToByte(a: Int): ByteArray {
+        return byteArrayOf(
             ((a shr 24) and 0xFF).toByte(),
             ((a shr 16) and 0xFF).toByte(),
             ((a shr 8) and 0xFF).toByte(),

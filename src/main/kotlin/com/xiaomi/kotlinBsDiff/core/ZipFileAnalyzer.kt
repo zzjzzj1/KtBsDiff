@@ -103,26 +103,52 @@ class ZipFileAnalyzer(val file: File) {
         return null
     }
 
+    private class MatchOutputStream(val exceptBuffer: ByteArray): OutputStream() {
+        var cur = 0
+        override fun write(byte: Int) {
+            if (cur >= exceptBuffer.size) {
+                throw Exception("cant match")
+            }
+            if (byte != exceptBuffer[cur++].toInt()) {
+                throw Exception("cant match")
+            }
+        }
+
+        override fun write(b: ByteArray) {
+            write(b, 0, b.size)
+        }
+
+        override fun write(b: ByteArray, off: Int, len: Int) {
+            for (i in off until off + len) {
+                if (cur >= exceptBuffer.size) {
+                    throw Exception("cant match")
+                }
+                if (b[i] != exceptBuffer[cur++]) {
+                    throw Exception("cant match")
+                }
+            }
+        }
+
+        fun isEnd() {
+            if (cur != exceptBuffer.size) {
+                throw Exception("cant match")
+            }
+        }
+    }
+
     private fun match(buffer: ByteArray, inflater: Inflater, deflater: Deflater): Boolean {
         try {
             val copyBuffer = ByteArray(32 * 1024)
             val inputStream = InflaterInputStream(ByteArrayInputStream(buffer), inflater, copyBuffer.size)
-            val compressStream = ByteArrayOutputStream()
-            val outputStream = DeflaterOutputStream(compressStream, deflater, copyBuffer.size)
+            val matchOutputStream = MatchOutputStream(buffer)
+            val outputStream = DeflaterOutputStream(matchOutputStream, deflater, copyBuffer.size)
             var numRead: Int
             while ((inputStream.read(copyBuffer).also { numRead = it }) >= 0) {
                 outputStream.write(copyBuffer, 0, numRead)
             }
-            outputStream.close()
-            val compressByteArray = compressStream.toByteArray()
-            if (compressByteArray.size != buffer.size) {
-                return false
-            }
-            for (i in buffer.indices) {
-                if (buffer[i] != compressByteArray[i]) {
-                    return false
-                }
-            }
+            outputStream.finish()
+            outputStream.flush()
+            matchOutputStream.isEnd()
             return true
         } catch (e: Exception) {
             return false

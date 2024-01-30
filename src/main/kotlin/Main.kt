@@ -8,6 +8,8 @@ import java.io.RandomAccessFile
 import java.util.Random
 
 fun main() {
+//    val oldFileName = "com.tencent.mm_8.0.45.apk"
+//    val newFileName = "com.tencent.mm_8.0.46.apk"
     val oldFileName = "oldFile"
     val newFileName = "newFile"
     KtApkDiff.diff(oldFileName, newFileName, "patch")

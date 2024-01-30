@@ -22,6 +22,7 @@ object KtApkDiff {
         val newZipFileSolver = ZipFileSolver(newFileAnalyzer)
         val outputStream = FileOutputStream(file)
         val bsDiff = BsDiff(oldZipFileSolver.unCompressFile(), newZipFileSolver.unCompressFile())
+        println("解压计划生成完毕")
         // 解压计划
         for (entry in oldFileAnalyzer.listAllEntries()) {
             outputStream.write(encodeNowrapParam(entry).toInt())

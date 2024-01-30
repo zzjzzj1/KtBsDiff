@@ -246,11 +246,11 @@ class BsDiff(val oldData: ByteArray, val newData: ByteArray) {
 
     private fun intToByte(a: Int): ByteArray {
         return byteArrayOf(
-            ((a shr 24) and 0xFF).toByte(),
-            ((a shr 16) and 0xFF).toByte(),
-            ((a shr 8) and 0xFF).toByte(),
-            (a and 0xFF).toByte()
-        )
+            ((a shr 24)).toByte(),
+            ((a shr 16)).toByte(),
+            ((a shr 8)).toByte(),
+            (a).toByte()
+        ).reversedArray()
     }
 
 }

@@ -9,6 +9,7 @@ class ZipFileAnalyzer(val file: File) {
     private val fileStream = RandomAccessFile(file, "r")
     private var endOfDirectoryAnalyzeResult: EndOfDirectoryAnalyzeResult? = null
     private var fileEntryList: List<ZipFileEntry>? = null
+    var firstEntryStartPos: Long = Long.MAX_VALUE
 
     /*
     copy from Googles patcher
@@ -145,7 +146,7 @@ class ZipFileAnalyzer(val file: File) {
         zipFileEntry.startPos += 30 + fileLength + extraLength
     }
 
-    fun listAllEntries(): List<ZipFileEntry> {
+    fun listAllEntries(matchDeflateParams: Boolean = true): List<ZipFileEntry> {
         fileEntryList?.let {
             return it
         }
@@ -173,13 +174,16 @@ class ZipFileAnalyzer(val file: File) {
             }
             fileStream.skipBytes(8)
             zipFileEntry.startPos = read32BitUnsigned()
+            firstEntryStartPos = Math.min(firstEntryStartPos, zipFileEntry.startPos)
             resultList += zipFileEntry
             fileStream.skipBytes(shouldSkipNumber)
         }
         for (zipFileEntry in resultList) {
             parseFileEntry(zipFileEntry)
         }
-        queryFileDeflateParams(resultList)
+        if (matchDeflateParams) {
+            queryFileDeflateParams(resultList)
+        }
         fileEntryList = resultList
         return resultList
     }

@@ -70,7 +70,12 @@ class ZipFileAnalyzer(val file: File) {
             }
             // ensure this file using deflate64
             if (entry.compressType == 8) {
-                entry.deflateParams = tryMatchDeflateParamByEntry(entry)
+                val tryMatchDeflateParamByEntry = tryMatchDeflateParamByEntry(entry)
+                if (tryMatchDeflateParamByEntry == null) {
+                    println("${entry.compressFileLength} ${entry.unCompressFileLength}")
+                    break
+                }
+                entry.deflateParams = tryMatchDeflateParamByEntry
             }
         }
     }
@@ -103,14 +108,14 @@ class ZipFileAnalyzer(val file: File) {
         return null
     }
 
-    private class MatchOutputStream(val exceptBuffer: ByteArray): OutputStream() {
+    private class MatchOutputStream(val exceptBuffer: ByteArray) : OutputStream() {
         var cur = 0
         override fun write(byte: Int) {
             if (cur >= exceptBuffer.size) {
-                throw Exception("cant match")
+                throw Exception("cant match shit")
             }
             if (byte != exceptBuffer[cur++].toInt()) {
-                throw Exception("cant match")
+                throw Exception("cant match 1")
             }
         }
 
@@ -121,17 +126,17 @@ class ZipFileAnalyzer(val file: File) {
         override fun write(b: ByteArray, off: Int, len: Int) {
             for (i in off until off + len) {
                 if (cur >= exceptBuffer.size) {
-                    throw Exception("cant match")
+                    throw Exception("cant match fucker")
                 }
                 if (b[i] != exceptBuffer[cur++]) {
-                    throw Exception("cant match")
+                    throw Exception("cant match 2")
                 }
             }
         }
 
         fun isEnd() {
             if (cur != exceptBuffer.size) {
-                throw Exception("cant match")
+                throw Exception("cant match end")
             }
         }
     }

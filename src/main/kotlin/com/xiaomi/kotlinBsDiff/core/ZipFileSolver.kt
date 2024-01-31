@@ -9,7 +9,9 @@ class ZipFileSolver(val zipFileAnalyzer: ZipFileAnalyzer) {
         var unCompressSize = 0L
         val zipEntryList = zipFileAnalyzer.listAllEntries()
         for (zipFileEntry in zipEntryList) {
-            unCompressSize += zipFileEntry.unCompressFileLength - zipFileEntry.compressFileLength
+            if (zipFileEntry.deflateParams != null) {
+                unCompressSize += zipFileEntry.unCompressFileLength - zipFileEntry.compressFileLength
+            }
         }
         val unCompressedData = ByteArray((zipFileAnalyzer.getFileLength() + unCompressSize).toInt())
         val fileRandomStream = zipFileAnalyzer.getFileStream()

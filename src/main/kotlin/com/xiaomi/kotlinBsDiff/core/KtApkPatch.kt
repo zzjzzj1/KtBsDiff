@@ -28,8 +28,8 @@ object KtApkPatch {
         tmpOutputStream.close()
         deflateFile(patchFileStream, RandomAccessFile(tmp, "r"), outputStream)
         outputStream.close()
-        tmpOldFile.delete()
-        tmp.delete()
+//        tmpOldFile.delete()
+//        tmp.delete()
     }
 
     fun deflateFile(patchFileStream: InputStream, tmpFileStream: RandomAccessFile, outputStream: OutputStream) {

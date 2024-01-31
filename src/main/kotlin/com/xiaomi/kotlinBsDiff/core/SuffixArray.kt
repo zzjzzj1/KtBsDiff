@@ -1,5 +1,6 @@
 package com.xiaomi.com.xiaomi.kotlinBsDiff.core
 
+import DivSufSort
 import java.util.*
 
 /*
@@ -244,11 +245,11 @@ class SuffixArray(private val data: ByteArray) {
     }
 
     private fun getSuffixArray(data: ByteArray): IntArray {
-        val temp = arrayOfNulls<Int>(data.size)
+        val temp = IntArray(data.size)
         for (i in data.indices) {
             temp[i] = data[i] + 128
         }
-        return getSuffixArray(temp)
+        return DivSufSort().buildSuffixArray(temp, 0, data.size)
     }
 
     private fun getMatchLength(

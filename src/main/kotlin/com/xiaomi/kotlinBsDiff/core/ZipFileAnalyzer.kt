@@ -20,7 +20,7 @@ class ZipFileAnalyzer(val file: File) {
         // expected to be default (6), maximum compression (9), and fastest (1).
         // The rest of the levels are rarely encountered and their order is mostly irrelevant.
         levelsByStrategy[0] = Collections.unmodifiableList(mutableListOf(6, 9, 1, 4, 2, 3, 5, 7, 8))
-        levelsByStrategy[1] = Collections.unmodifiableList(mutableListOf(6, 9, 4, 5, 7, 8))
+        levelsByStrategy[1] = Collections.unmodifiableList(mutableListOf(6, 9, 4, 5, 7, 8, 1, 2, 3))
         // Strategy 2 does not have the concept of levels, so vacuously call it 1.
         levelsByStrategy[2] = listOf(1)
         return Collections.unmodifiableMap(levelsByStrategy)
@@ -64,20 +64,23 @@ class ZipFileAnalyzer(val file: File) {
     }
 
     private fun queryFileDeflateParams(zipEntries: List<ZipFileEntry>) {
+        var number = 0
+        var deflateSize = 0
         for (entry in zipEntries) {
             if (entry.compressFileLength == 0L) {
                 continue
             }
             // ensure this file using deflate64
-            if (entry.compressType == 8) {
+            if (entry.compressType == 8 && entry.unCompressFileLength != entry.compressFileLength) {
                 val tryMatchDeflateParamByEntry = tryMatchDeflateParamByEntry(entry)
-                if (tryMatchDeflateParamByEntry == null) {
-                    println("${entry.compressFileLength} ${entry.unCompressFileLength}")
-                    break
+                if (tryMatchDeflateParamByEntry != null) {
+                    number++
                 }
+                deflateSize++
                 entry.deflateParams = tryMatchDeflateParamByEntry
             }
         }
+        println("decompress $number in ${zipEntries.size}")
     }
 
     fun tryMatchDeflateParamByEntry(entry: ZipFileEntry): ZipDeflateParams? {
@@ -165,7 +168,9 @@ class ZipFileAnalyzer(val file: File) {
         if (read32BitUnsigned() != FILE_ENTRY_HEADER_SIGNATURE.toLong()) {
             throw Exception("cant parse file entry")
         }
-        fileStream.skipBytes(4)
+        fileStream.skipBytes(2)
+        val flag = read16BitUnsigned().toInt()
+        zipFileEntry.flag = flag
         val compressType = read16BitUnsigned()
         zipFileEntry.compressType = compressType.toInt()
         fileStream.skipBytes(16)
@@ -275,6 +280,7 @@ class ZipFileAnalyzer(val file: File) {
         var compressFileLength: Long,
         var fileName: String = "",
         var compressType: Int = -1,
+        var flag: Int = 0,
         var deflateParams: ZipDeflateParams? = null
     )
 

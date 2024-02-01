@@ -56,8 +56,6 @@ class BsDiff(val oldData: ByteArray, val newData: ByteArray) {
         suffixArray: SuffixArray
     ) {
         // 核心原理就是使用启发式的搜索算法不断寻找大概率重合的字段
-        // HDiff算法对于此处进行了优化，使得包体减小百分之10
-        // todo 查看HDiff算法此处搜索逻辑
         while (scan < newData.size) {
             var oldScore = 0
             scan += len

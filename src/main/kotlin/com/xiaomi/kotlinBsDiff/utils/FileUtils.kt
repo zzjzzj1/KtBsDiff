@@ -91,6 +91,21 @@ object FileUtils {
         }
     }
 
+    fun streamFile(
+        file: InputStream,
+        length: Long,
+        streamSolver: StreamSolver,
+        bufferSize: Int = 32
+    ) {
+        val buffer = ByteArray(bufferSize * 1024)
+        var curRead = 0
+        while (curRead < length) {
+            val readSize = if ((length - curRead) < buffer.size) length - curRead else buffer.size
+            curRead += file.read(buffer, 0, readSize.toInt())
+            streamSolver.solveBuffer(buffer, readSize.toInt())
+        }
+    }
+
     fun copyFileByStream(file: RandomAccessFile, outputStream: OutputStream, startPos: Long, length: Long) {
         streamFile(file, startPos, length, object: StreamSolver {
             override fun solveBuffer(buffer: ByteArray, length: Int) {

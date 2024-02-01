@@ -170,56 +170,10 @@ class BsDiff(val oldData: ByteArray, val newData: ByteArray) {
         writeData(forwardExtensionLength)
         writeData(lastPos)
         val tempArray = ByteArray(forwardExtensionLength)
-        val posRecord = ArrayList<Int>()
         for (i in 0..<forwardExtensionLength) {
             tempArray[i] = (newData[lastScan + i] - oldData[lastPos + i]).toByte()
         }
-        for (i in 0..<forwardExtensionLength) {
-            if (tempArray[i].toInt() == 0) {
-                continue
-            }
-            if (i == 0 || tempArray[i - 1].toInt() == 0) {
-                posRecord.add(i)
-            }
-            if (i + 1 == forwardExtensionLength || tempArray[i + 1].toInt() == 0) {
-                posRecord.add(i + 1)
-            }
-        }
-        val temp = ArrayList<Int>()
-        var lastStartPos: Int = -1
-        var lastEndPos: Int = -1
-        var cur = 0
-        while (cur < posRecord.size) {
-            val startPos = posRecord[cur++]
-            val endPos = posRecord[cur++]
-            if (lastStartPos == -1 || lastEndPos == -1) {
-                lastStartPos = startPos
-                lastEndPos = endPos
-                continue
-            }
-            val zeroNumber = startPos - lastEndPos
-            if (zeroNumber > 8) {
-                temp.add(lastStartPos)
-                temp.add(lastEndPos)
-                lastStartPos = startPos
-            }
-            lastEndPos = endPos
-        }
-        if (lastStartPos != -1 && lastEndPos != -1) {
-            temp.add(lastStartPos)
-            temp.add(lastEndPos)
-        }
-        posRecord.clear()
-        posRecord.addAll(temp)
-        writeData(posRecord.size / 2)
-        cur = 0
-        while (cur < posRecord.size) {
-            val startPos = posRecord[cur++]
-            val endPos = posRecord[cur++]
-            writeData(startPos)
-            writeData(endPos - startPos)
-            outputStream?.write(tempArray, startPos, endPos - startPos)
-        }
+        outputStream?.write(tempArray)
         // 记录extra区段
         val extraLen = (scan - backwardExtensionLength) - (lastScan + forwardExtensionLength)
         writeData(extraLen)

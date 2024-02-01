@@ -2,8 +2,6 @@ package com.xiaomi.com.xiaomi.kotlinBsDiff.core
 
 import com.xiaomi.com.xiaomi.kotlinBsDiff.utils.FileUtils
 import java.io.*
-import java.util.zip.Deflater
-import java.util.zip.DeflaterOutputStream
 
 class BsPatch(private val oldFileStream: RandomAccessFile, private val patchFileStream: InputStream) {
 
@@ -17,31 +15,32 @@ class BsPatch(private val oldFileStream: RandomAccessFile, private val patchFile
         while (cur < fileSize) {
             val diffLen = readInt()
             val oldFilePos = readInt()
-            val buffer = readDataFromFile(oldFileStream, oldFilePos, diffLen)
-            val diffPatchNumber = readInt()
-            for (i in 0..<diffPatchNumber) {
-                val diffStartPos = readInt()
-                val diffPatchLen = readInt()
-                val bufferNew = patchFileStream.readNBytes(diffPatchLen)
-                for (j in 0..<diffPatchLen) {
-                    buffer[diffStartPos + j] = (buffer[diffStartPos + j] + bufferNew[j]).toByte()
+            oldFileStream.seek(oldFilePos.toLong())
+            val buffer = ByteArray(32 * 1024)
+            val bufferDiff = ByteArray(32 * 1024)
+            var numRead = 0
+            while (numRead < diffLen) {
+                val currentRead = if ((diffLen - numRead) > buffer.size) buffer.size else (diffLen - numRead)
+                val realRead = oldFileStream.read(buffer, 0, currentRead)
+                if (currentRead != realRead) {
+                    throw Exception("error when read file")
                 }
+                patchFileStream.read(bufferDiff, 0, realRead)
+                for (i in 0 until realRead) {
+                    buffer[i] = (buffer[i] + bufferDiff[i]).toByte()
+                }
+                outputStream.write(buffer, 0, realRead)
+                numRead += realRead
             }
-            outputStream.write(buffer)
-            cur += buffer.size
+            cur += diffLen
             val extraLen = readInt()
-            val extraData = ByteArray(extraLen)
-            patchFileStream.read(extraData)
-            outputStream.write(extraData)
-            cur += extraData.size
+            FileUtils.streamFile(patchFileStream, extraLen.toLong(), object: FileUtils.StreamSolver{
+                override fun solveBuffer(buffer: ByteArray, length: Int) {
+                    outputStream.write(buffer, 0, length)
+                }
+            })
+            cur += extraLen
         }
-    }
-
-    private fun readDataFromFile(file: RandomAccessFile, startPos: Int, length: Int): ByteArray {
-        val buffer = ByteArray(length)
-        file.seek(startPos.toLong())
-        file.read(buffer)
-        return buffer
     }
 
 

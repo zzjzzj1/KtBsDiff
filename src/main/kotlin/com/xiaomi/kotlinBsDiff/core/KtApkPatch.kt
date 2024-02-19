@@ -24,78 +24,74 @@ object KtApkPatch {
         val tmpOldFile = solveOldFile(oldFile, patchFileStream)
         val oldFileStream = RandomAccessFile(tmpOldFile, "r")
         val patcher = BsPatch(oldFileStream, patchFileStream)
+        var startTime = System.currentTimeMillis();
         patcher.patch(tmpOutputStream)
+        println(System.currentTimeMillis() - startTime)
         tmpOutputStream.close()
-        deflateFile(patchFileStream, RandomAccessFile(tmp, "r"), outputStream)
+        startTime = System.currentTimeMillis()
+        deflateFile(patchFileStream, FileInputStream(tmp), outputStream)
+        println(System.currentTimeMillis() - startTime)
         outputStream.close()
         tmpOldFile.delete()
         tmp.delete()
     }
 
-    fun deflateFile(patchFileStream: InputStream, tmpFileStream: RandomAccessFile, outputStream: OutputStream) {
+    private fun deflateFile(patchFileStream: InputStream, tmpFileStream: InputStream, outputStream: OutputStream) {
         var deflateParams: Int
         val firstEntryStartPos = FileUtils.read32BitUnsigned(patchFileStream)
         FileUtils.copyFileByStream(
             tmpFileStream,
             outputStream,
-            0,
             firstEntryStartPos
         )
-        var cur = firstEntryStartPos
         while (true) {
             deflateParams = patchFileStream.read()
             if (deflateParams == -1) {
                 break
             }
-            val fileEntry = parseFileEntryByPos(tmpFileStream, cur)
+            val fileEntry = parseFileEntryByPos(tmpFileStream, outputStream)
             if (deflateParams == 0) {
                 FileUtils.copyFileByStream(
                     tmpFileStream,
                     outputStream,
-                    cur,
-                    fileEntry.dataStartPos + fileEntry.compressSize
+                    fileEntry.compressSize
                 )
-                cur += fileEntry.dataStartPos + fileEntry.compressSize
                 continue
             }
-            FileUtils.copyFileByStream(
-                tmpFileStream,
-                outputStream,
-                cur,
-                fileEntry.dataStartPos
-            )
             FileUtils.deflateFileByStream(
                 tmpFileStream,
                 outputStream,
-                cur + fileEntry.dataStartPos,
                 fileEntry.unCompressSize,
                 decodeDeflateParams(deflateParams.toByte())
             )
-            cur += fileEntry.dataStartPos + fileEntry.unCompressSize
         }
 
         FileUtils.copyFileByStream(
             tmpFileStream,
             outputStream,
-            cur,
-            tmpFileStream.length() - cur
         )
 
     }
 
     data class FileEntry(val compressSize: Long, val unCompressSize: Long, val dataStartPos: Long)
 
-    fun parseFileEntryByPos(fileStream: RandomAccessFile, pos: Long): FileEntry {
-        fileStream.seek(pos)
-        val header = FileUtils.read32BitUnsigned(fileStream)
+    private fun parseFileEntryByPos(fileStream: InputStream, outputStream: OutputStream): FileEntry {
+        val headerBuffer = ByteArray(30)
+        val read = fileStream.read(headerBuffer, 0, headerBuffer.size)
+        if (read != 30) {
+            throw Exception("can find the file entry header")
+        }
+        outputStream.write(headerBuffer, 0, headerBuffer.size)
+        val header = FileUtils.read32BitUnsigned(headerBuffer, 0)
         if (header != ZipFileAnalyzer.FILE_ENTRY_HEADER_SIGNATURE.toLong()) {
             throw Exception("can find the file entry header")
         }
-        fileStream.skipBytes(14)
-        val compressLength = FileUtils.read32BitUnsigned(fileStream)
-        val unCompressLength = FileUtils.read32BitUnsigned(fileStream)
-        val fileNameLength = FileUtils.read16BitUnsigned(fileStream)
-        val extraLength = FileUtils.read16BitUnsigned(fileStream)
+        val compressLength = FileUtils.read32BitUnsigned(headerBuffer, 18)
+        val unCompressLength = FileUtils.read32BitUnsigned(headerBuffer, 22)
+        val fileNameLength = FileUtils.read16BitUnsigned(headerBuffer, 26)
+        val extraLength = FileUtils.read16BitUnsigned(headerBuffer, 28)
+        // copy header
+        FileUtils.copyFileByStream(fileStream, outputStream, fileNameLength + extraLength)
         return FileEntry(compressLength, unCompressLength, 30 + fileNameLength + extraLength)
     }
 
@@ -132,7 +128,7 @@ object KtApkPatch {
         var number = byte.toInt()
         val nowrapFlag: Int = number / 30
         res.nowrap = nowrapFlag == 1
-        number = number % 30
+        number %= 30
         res.strategy = number / 10
         res.level = number % 10
         return res

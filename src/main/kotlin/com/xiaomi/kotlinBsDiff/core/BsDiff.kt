@@ -1,13 +1,8 @@
 package com.xiaomi.com.xiaomi.kotlinBsDiff.core
 
-import com.xiaomi.com.xiaomi.kotlinBsDiff.exception.FileNotFoundException
-import com.xiaomi.com.xiaomi.kotlinBsDiff.utils.FileUtils
-import java.io.File
-import java.io.FileOutputStream
 import java.io.OutputStream
-import kotlin.collections.ArrayList
 
-class BsDiff(val oldData: ByteArray, val newData: ByteArray) {
+class BsDiff(private val oldData: ByteArray, private val newData: ByteArray) {
 //    private var diffRecord = ArrayList<Byte>()
 
     private var outputStream: OutputStream? = null

@@ -3,7 +3,7 @@ package com.xiaomi.com.xiaomi.kotlinBsDiff.core
 import java.io.RandomAccessFile
 import java.util.zip.Inflater
 
-class ZipFileSolver(val zipFileAnalyzer: ZipFileAnalyzer) {
+class ZipFileSolver(private val zipFileAnalyzer: ZipFileAnalyzer) {
 
     fun unCompressFile(): ByteArray {
         var unCompressSize = 0L

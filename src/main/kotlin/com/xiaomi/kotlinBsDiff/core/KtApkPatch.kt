@@ -24,7 +24,7 @@ object KtApkPatch {
         val tmpOldFile = solveOldFile(oldFile, patchFileStream)
         val oldFileStream = RandomAccessFile(tmpOldFile, "r")
         val patcher = BsPatch(oldFileStream, patchFileStream)
-        var startTime = System.currentTimeMillis();
+        var startTime = System.currentTimeMillis()
         patcher.patch(tmpOutputStream)
         println("bsPatch耗时: ${System.currentTimeMillis() - startTime}ms")
         tmpOutputStream.close()
@@ -44,7 +44,6 @@ object KtApkPatch {
             outputStream,
             firstEntryStartPos
         )
-        val time = 0
         while (true) {
             deflateParams = patchFileStream.read()
             if (deflateParams == -1) {

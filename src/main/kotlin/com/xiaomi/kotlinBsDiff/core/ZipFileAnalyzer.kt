@@ -3,8 +3,10 @@ package com.xiaomi.com.xiaomi.kotlinBsDiff.core
 import java.io.*
 import java.util.*
 import java.util.zip.*
+import kotlin.math.max
+import kotlin.math.min
 
-class ZipFileAnalyzer(val file: File) {
+class ZipFileAnalyzer(private val file: File) {
 
     private val fileStream = RandomAccessFile(file, "r")
     private var endOfDirectoryAnalyzeResult: EndOfDirectoryAnalyzeResult? = null
@@ -43,7 +45,7 @@ class ZipFileAnalyzer(val file: File) {
     // 自后向前寻找目录结束标识，大概率出现在第一个32kb
     private fun findEndOfDirectoryRecord(bufferSize: Int = 1024 * 32): Long {
         val buffer = ByteArray(bufferSize)
-        var currentBufferHead = Math.max(0, file.length() - bufferSize)
+        var currentBufferHead = max(0, file.length() - bufferSize)
         var last4Bytes = 0
         while (currentBufferHead >= 0) {
             fileStream.seek(currentBufferHead)
@@ -58,7 +60,7 @@ class ZipFileAnalyzer(val file: File) {
             if (currentBufferHead == 0L) {
                 break
             }
-            currentBufferHead = Math.max(0, currentBufferHead - read)
+            currentBufferHead = max(0, currentBufferHead - read)
         }
         return -1
     }
@@ -83,7 +85,7 @@ class ZipFileAnalyzer(val file: File) {
         println("decompress $number in ${zipEntries.size}")
     }
 
-    fun tryMatchDeflateParamByEntry(entry: ZipFileEntry): ZipDeflateParams? {
+    private fun tryMatchDeflateParamByEntry(entry: ZipFileEntry): ZipDeflateParams? {
         val buffer = ByteArray(entry.compressFileLength.toInt())
         fileStream.seek(entry.startPos)
         fileStream.read(buffer)
@@ -93,7 +95,7 @@ class ZipFileAnalyzer(val file: File) {
             val deflater = Deflater(0, nowrap)
             for (strategy in 0 until 3) {
                 deflater.setStrategy(strategy)
-                for (level in levelMap.get(strategy)!!) {
+                for (level in levelMap[strategy]!!) {
                     deflater.setLevel(level)
                     inflater.reset()
                     deflater.reset()
@@ -210,7 +212,7 @@ class ZipFileAnalyzer(val file: File) {
             }
             fileStream.skipBytes(8)
             zipFileEntry.startPos = read32BitUnsigned()
-            firstEntryStartPos = Math.min(firstEntryStartPos, zipFileEntry.startPos)
+            firstEntryStartPos = min(firstEntryStartPos, zipFileEntry.startPos)
             resultList += zipFileEntry
             fileStream.skipBytes(shouldSkipNumber)
         }
@@ -224,7 +226,7 @@ class ZipFileAnalyzer(val file: File) {
         return resultList
     }
 
-    fun getEndOfDirectoryAnalyzeResult(): EndOfDirectoryAnalyzeResult {
+    private fun getEndOfDirectoryAnalyzeResult(): EndOfDirectoryAnalyzeResult {
         endOfDirectoryAnalyzeResult?.let {
             return it
         }

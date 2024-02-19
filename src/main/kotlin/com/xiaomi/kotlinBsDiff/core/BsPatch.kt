@@ -44,7 +44,7 @@ class BsPatch(private val oldFileStream: RandomAccessFile, private val patchFile
     }
 
 
-    fun readInt(): Int {
+    private fun readInt(): Int {
         return FileUtils.read32BitUnsigned(patchFileStream).toInt()
     }
 }

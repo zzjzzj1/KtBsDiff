@@ -26,11 +26,11 @@ object KtApkPatch {
         val patcher = BsPatch(oldFileStream, patchFileStream)
         var startTime = System.currentTimeMillis();
         patcher.patch(tmpOutputStream)
-        println(System.currentTimeMillis() - startTime)
+        println("bsPatch耗时: ${System.currentTimeMillis() - startTime}ms")
         tmpOutputStream.close()
         startTime = System.currentTimeMillis()
         deflateFile(patchFileStream, FileInputStream(tmp), outputStream)
-        println(System.currentTimeMillis() - startTime)
+        println("重新压缩耗时: ${System.currentTimeMillis() - startTime}ms")
         outputStream.close()
         tmpOldFile.delete()
         tmp.delete()
@@ -44,6 +44,7 @@ object KtApkPatch {
             outputStream,
             firstEntryStartPos
         )
+        val time = 0
         while (true) {
             deflateParams = patchFileStream.read()
             if (deflateParams == -1) {

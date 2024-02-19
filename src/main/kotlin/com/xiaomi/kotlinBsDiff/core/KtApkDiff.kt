@@ -24,7 +24,7 @@ object KtApkDiff {
         val startTime = System.currentTimeMillis()
         val oldData = oldZipFileSolver.unCompressFile()
         val bsDiff = BsDiff(oldData, newZipFileSolver.unCompressFile())
-        println("解压计划耗时: " + (System.currentTimeMillis() - startTime).toString())
+        println("生成解压计划耗时: ${System.currentTimeMillis() - startTime}ms")
         // 解压计划
         for (entry in oldFileAnalyzer.listAllEntries()) {
             outputStream.write(encodeNowrapParam(entry).toInt())

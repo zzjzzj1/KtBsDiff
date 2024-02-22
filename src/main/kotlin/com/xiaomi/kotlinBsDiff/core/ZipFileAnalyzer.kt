@@ -22,7 +22,7 @@ class ZipFileAnalyzer(private val file: File) {
         // expected to be default (6), maximum compression (9), and fastest (1).
         // The rest of the levels are rarely encountered and their order is mostly irrelevant.
         levelsByStrategy[0] = Collections.unmodifiableList(mutableListOf(6, 9, 1, 4, 2, 3, 5, 7, 8))
-        levelsByStrategy[1] = Collections.unmodifiableList(mutableListOf(6, 9, 4, 5, 7, 8, 1, 2, 3))
+        levelsByStrategy[1] = Collections.unmodifiableList(mutableListOf(6, 9, 4, 5, 7, 8))
         // Strategy 2 does not have the concept of levels, so vacuously call it 1.
         levelsByStrategy[2] = listOf(1)
         return Collections.unmodifiableMap(levelsByStrategy)
@@ -170,7 +170,8 @@ class ZipFileAnalyzer(private val file: File) {
         if (read32BitUnsigned() != FILE_ENTRY_HEADER_SIGNATURE.toLong()) {
             throw Exception("cant parse file entry")
         }
-        fileStream.skipBytes(2)
+        val compressVersion = read16BitUnsigned().toInt()
+        zipFileEntry.compressVersion = compressVersion
         val flag = read16BitUnsigned().toInt()
         zipFileEntry.flag = flag
         val compressType = read16BitUnsigned()
@@ -283,7 +284,8 @@ class ZipFileAnalyzer(private val file: File) {
         var fileName: String = "",
         var compressType: Int = -1,
         var flag: Int = 0,
-        var deflateParams: ZipDeflateParams? = null
+        var deflateParams: ZipDeflateParams? = null,
+        var compressVersion: Int = 0
     )
 
     data class ZipDeflateParams(

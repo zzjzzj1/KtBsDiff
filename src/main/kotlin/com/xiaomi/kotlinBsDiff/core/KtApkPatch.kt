@@ -1,7 +1,9 @@
 package com.xiaomi.com.xiaomi.kotlinBsDiff.core
 
+import com.github.luben.zstd.ZstdInputStream
 import com.xiaomi.com.xiaomi.kotlinBsDiff.utils.FileUtils
 import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.InputStream
@@ -12,87 +14,40 @@ object KtApkPatch {
 
     fun patch(oldFileName: String, patchFileName: String, newFileName: String) {
         val file = FileUtils.createFile(newFileName)
-        val tmp = FileUtils.createFile("tmpNew")
-        val tmpOutputStream = tmp.outputStream()
-        val outputStream = file.outputStream()
+        val fileOutputStream = BufferedOutputStream(file.outputStream(), 32 * 1024)
         val oldFile = File(oldFileName)
         val patchFile = File(patchFileName)
         if (!oldFile.exists() || !patchFile.exists()) {
             throw Exception("cant find file")
         }
-        val patchFileStream = BufferedInputStream(FileInputStream(patchFile), 32 * 1024)
+        val patchFileStream = BufferedInputStream(ZstdInputStream(FileInputStream(patchFile)), 32 * 1024)
+        var startTime = System.currentTimeMillis()
         val tmpOldFile = solveOldFile(oldFile, patchFileStream)
+        println("解压耗时: ${System.currentTimeMillis() - startTime}ms")
         val oldFileStream = RandomAccessFile(tmpOldFile, "r")
         val patcher = BsPatch(oldFileStream, patchFileStream)
-        var startTime = System.currentTimeMillis()
-        patcher.patch(tmpOutputStream)
-        println("bsPatch耗时: ${System.currentTimeMillis() - startTime}ms")
-        tmpOutputStream.close()
         startTime = System.currentTimeMillis()
-        deflateFile(patchFileStream, FileInputStream(tmp), outputStream)
-        println("重新压缩耗时: ${System.currentTimeMillis() - startTime}ms")
+        val outputStream =
+            BufferedOutputStream(createDeflateOutputStream(patchFileStream, fileOutputStream), 32 * 1024)
+        patcher.patch(outputStream)
         outputStream.close()
+        println("bsPatch耗时: ${System.currentTimeMillis() - startTime}ms")
         tmpOldFile.delete()
-        tmp.delete()
     }
 
-    private fun deflateFile(patchFileStream: InputStream, tmpFileStream: InputStream, outputStream: OutputStream) {
-        var deflateParams: Int
-        val firstEntryStartPos = FileUtils.read32BitUnsigned(patchFileStream)
-        FileUtils.copyFileByStream(
-            tmpFileStream,
-            outputStream,
-            firstEntryStartPos
-        )
-        while (true) {
-            deflateParams = patchFileStream.read()
-            if (deflateParams == -1) {
-                break
-            }
-            val fileEntry = parseFileEntryByPos(tmpFileStream, outputStream)
-            if (deflateParams == 0) {
-                FileUtils.copyFileByStream(
-                    tmpFileStream,
-                    outputStream,
-                    fileEntry.compressSize
-                )
-                continue
-            }
-            FileUtils.deflateFileByStream(
-                tmpFileStream,
-                outputStream,
-                fileEntry.unCompressSize,
+    private fun createDeflateOutputStream(patchFileStream: InputStream, outputStream: OutputStream): DeflateOutputStream {
+        val startPos = FileUtils.read32BitUnsigned(patchFileStream)
+        val entrySize = FileUtils.read32BitUnsigned(patchFileStream)
+        val paramList = ArrayList<ZipFileAnalyzer.ZipDeflateParams?>()
+        for (i in 0 until entrySize) {
+            val deflateParams = patchFileStream.read()
+            paramList += if (deflateParams == 0) {
+                null
+            } else {
                 decodeDeflateParams(deflateParams.toByte())
-            )
+            }
         }
-
-        FileUtils.copyFileByStream(
-            tmpFileStream,
-            outputStream,
-        )
-
-    }
-
-    data class FileEntry(val compressSize: Long, val unCompressSize: Long, val dataStartPos: Long)
-
-    private fun parseFileEntryByPos(fileStream: InputStream, outputStream: OutputStream): FileEntry {
-        val headerBuffer = ByteArray(30)
-        val read = fileStream.read(headerBuffer, 0, headerBuffer.size)
-        if (read != 30) {
-            throw Exception("can find the file entry header")
-        }
-        outputStream.write(headerBuffer, 0, headerBuffer.size)
-        val header = FileUtils.read32BitUnsigned(headerBuffer, 0)
-        if (header != ZipFileAnalyzer.FILE_ENTRY_HEADER_SIGNATURE.toLong()) {
-            throw Exception("can find the file entry header")
-        }
-        val compressLength = FileUtils.read32BitUnsigned(headerBuffer, 18)
-        val unCompressLength = FileUtils.read32BitUnsigned(headerBuffer, 22)
-        val fileNameLength = FileUtils.read16BitUnsigned(headerBuffer, 26)
-        val extraLength = FileUtils.read16BitUnsigned(headerBuffer, 28)
-        // copy header
-        FileUtils.copyFileByStream(fileStream, outputStream, fileNameLength + extraLength)
-        return FileEntry(compressLength, unCompressLength, 30 + fileNameLength + extraLength)
+        return DeflateOutputStream(outputStream, paramList, startPos)
     }
 
     private fun solveOldFile(oldFile: File, patchFileStream: InputStream): File {

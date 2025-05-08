@@ -1,5 +1,6 @@
 package com.xiaomi.com.xiaomi.kotlinBsDiff.core
 
+import com.github.luben.zstd.ZstdOutputStream
 import com.xiaomi.com.xiaomi.kotlinBsDiff.utils.FileUtils
 import java.io.File
 import java.io.FileOutputStream
@@ -20,7 +21,7 @@ object KtApkDiff {
         val oldZipFileSolver = ZipFileSolver(oldFileAnalyzer)
         val newFileAnalyzer = ZipFileAnalyzer(newFile)
         val newZipFileSolver = ZipFileSolver(newFileAnalyzer)
-        val outputStream = FileOutputStream(file)
+        val outputStream = ZstdOutputStream(FileOutputStream(file))
         val startTime = System.currentTimeMillis()
         val oldData = oldZipFileSolver.unCompressFile()
         val bsDiff = BsDiff(oldData, newZipFileSolver.unCompressFile())
@@ -29,7 +30,6 @@ object KtApkDiff {
         for (entry in oldFileAnalyzer.listAllEntries()) {
             outputStream.write(encodeNowrapParam(entry).toInt())
         }
-        bsDiff.diff(outputStream)
         val listAllEntries = newFileAnalyzer.listAllEntries()
         val buffer = ByteArray(listAllEntries.size)
         for (i in listAllEntries.indices) {
@@ -37,7 +37,9 @@ object KtApkDiff {
         }
         // 注明第一个文件块开始的位置
         outputStream.write(intToByte(newFileAnalyzer.firstEntryStartPos.toInt()))
+        outputStream.write(intToByte(buffer.size))
         outputStream.write(buffer)
+        bsDiff.diff(outputStream)
         outputStream.close()
     }
 
